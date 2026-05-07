@@ -1,3 +1,4 @@
 <Solution>
-  <Project Path="MiniApi/MiniApi.csproj" />
+  <Project Path="../../../../../../toDoList-2026/MiniApi/MiniApi.csproj" />
+  <Project Path="../../../../../../toDoList-2026/Products.API/Products.API.csproj" Id="f4b04ed8-7885-413b-974c-275a128a9656" />
 </Solution>
