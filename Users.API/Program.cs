@@ -1,4 +1,5 @@
 using Users.API.Services;
+using Users.API.Middlewares;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -13,11 +14,11 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Servicio", "Users.API")
     .WriteTo.Console(outputTemplate:
-        "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] {Message:lj} {NewLine}{Exception}")
-    .WriteTo.File("logs/users-.log",
-        rollingInterval: RollingInterval.Day,
-        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] [{Servicio}] {Message:lj}{NewLine}{Exception}",
-        formatter: new Serilog.Formatting.Json.JsonFormatter())
+        "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] [{CorrelationId}] {Message:lj} {NewLine}{Exception}")
+    .WriteTo.File(
+        formatter: new Serilog.Formatting.Json.JsonFormatter(),
+        path: "logs/products-.log",
+        rollingInterval: RollingInterval.Day)
 );
 
 builder.Services.AddControllers();
@@ -28,6 +29,7 @@ builder.Services.AddSingleton<UserService>();
 
 var app = builder.Build();
 
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 
 app.UseSwagger();

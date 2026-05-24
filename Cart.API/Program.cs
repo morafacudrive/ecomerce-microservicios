@@ -1,4 +1,5 @@
 using Cart.API.Services;
+using Cart.API.Middlewares; 
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -13,11 +14,11 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Servicio", "Cart.API")
     .WriteTo.Console(outputTemplate:
-        "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] {Message:lj} {NewLine}{Exception}")
-    .WriteTo.File("logs/cart-.log",
-        rollingInterval: RollingInterval.Day,
-        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] [{Servicio}] {Message:lj}{NewLine}{Exception}",
-        formatter: new Serilog.Formatting.Json.JsonFormatter())
+        "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] [{CorrelationId}] {Message:lj} {NewLine}{Exception}")
+    .WriteTo.File(
+        formatter: new Serilog.Formatting.Json.JsonFormatter(),
+        path: "logs/products-.log",
+        rollingInterval: RollingInterval.Day)
 );
 
 builder.Services.AddControllers();
@@ -31,7 +32,9 @@ builder.Services.AddSingleton<CartService>();
 
 var app = builder.Build();
 
-app.UseSerilogRequestLogging(); // loggea inicio/fin de cada request con duración
+
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseSerilogRequestLogging();
 
 app.UseSwagger();
 app.UseSwaggerUI();
