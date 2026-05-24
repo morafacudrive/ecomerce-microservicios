@@ -23,6 +23,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 builder.Services.AddSingleton<UserService>();
 
 var app = builder.Build();
@@ -37,6 +38,51 @@ app.MapControllers();
 try
 {
     Log.Information("Iniciando Users.API...");
+    app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                estado = report.Status.ToString(),
+                checks = report.Entries.Select(e => new
+                {
+                    nombre = e.Key,
+                    estado = e.Value.Status.ToString()
+                })
+            });
+            await context.Response.WriteAsync(result);
+        }
+    });
+
+    app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready"),
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                estado = report.Status.ToString()
+            });
+            await context.Response.WriteAsync(result);
+        }
+    });
+
+    app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = _ => false,
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                estado = report.Status.ToString()
+            });
+            await context.Response.WriteAsync(result);
+        }
+    });
     app.Run();
 }
 catch (Exception ex)
