@@ -6,14 +6,30 @@ namespace Users.API.Services;
 
 public class UserService
 {
-    private static List<User> _users = new();
+    private static readonly List<User> _users = new();
 
     public UserResponse Register(RegisterRequest request)
     {
-        // Validar email duplicado
-        var existe = _users.Any(u => u.Email == request.Email);
+        if (request == null)
+            throw new ValidationException("USR-002", "Los datos del usuario son inválidos.");
+
+        if (string.IsNullOrWhiteSpace(request.Nombre))
+            throw new ValidationException("USR-002", "El nombre es requerido.");
+
+        if (string.IsNullOrWhiteSpace(request.Apellido))
+            throw new ValidationException("USR-002", "El apellido es requerido.");
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new ValidationException("USR-002", "El email es requerido.");
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+            throw new ValidationException("USR-002", "La contraseña es requerida.");
+
+        var existe = _users.Any(u =>
+            u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+
         if (existe)
-            throw new BusinessRuleException("USR-001", $"El email '{request.Email}' ya está registrado.");
+            throw new ConflictException("USR-001", $"El email '{request.Email}' ya está registrado.");
 
         var user = new User
         {
@@ -28,45 +44,58 @@ public class UserService
         };
 
         _users.Add(user);
+
         return MapToResponse(user);
     }
 
     public UserResponse Login(LoginRequest request)
     {
-        var user = _users.FirstOrDefault(u => u.Email == request.Email);
+        if (request == null)
+            throw new ValidationException("USR-002", "Los datos del usuario son inválidos.");
 
-        // Usuario no existe o contraseña incorrecta
-        if (user == null || user.PasswordHash != request.Password)
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new ValidationException("USR-002", "El email es requerido.");
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+            throw new ValidationException("USR-002", "La contraseña es requerida.");
+
+        var user = _users.FirstOrDefault(u =>
+            u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+
+        if (user == null)
+            throw new UnauthorizedException("USR-003", "Credenciales incorrectas.");
+
+        if (!user.Activo && user.IntentosFallidos >= 3)
+            throw new ForbiddenException("USR-004", "Su cuenta fue bloqueada por superar el máximo de intentos fallidos.");
+
+        if (!user.Activo)
+            throw new ForbiddenException("USR-005", "Su cuenta fue suspendida por razones de seguridad.");
+
+        if (user.PasswordHash != request.Password)
         {
-            if (user != null)
-            {
-                user.IntentosFallidos++;
-                if (user.IntentosFallidos >= 3)
-                    user.Activo = false;
-            }
-            throw new BusinessRuleException("USR-003", "Credenciales incorrectas.");
+            user.IntentosFallidos++;
+
+            if (user.IntentosFallidos >= 3)
+                user.Activo = false;
+
+            throw new UnauthorizedException("USR-003", "Credenciales incorrectas.");
         }
 
-        // Usuario bloqueado por intentos fallidos
-        if (!user.Activo && user.IntentosFallidos >= 3)
-            throw new BusinessRuleException("USR-004", "Su cuenta fue bloqueada por superar el máximo de intentos fallidos. Contacte a soporte.");
-
-        // Usuario bloqueado por fraude
-        if (!user.Activo)
-            throw new BusinessRuleException("USR-005", "Su cuenta fue suspendida por razones de seguridad. Contacte a soporte.");
-
-        // Login exitoso - resetear intentos fallidos
         user.IntentosFallidos = 0;
+
         return MapToResponse(user);
     }
 
-    private static UserResponse MapToResponse(User u) => new()
+    private static UserResponse MapToResponse(User user)
     {
-        Id = u.Id,
-        Nombre = u.Nombre,
-        Apellido = u.Apellido,
-        Email = u.Email,
-        FechaRegistro = u.FechaRegistro,
-        Activo = u.Activo
-    };
+        return new UserResponse
+        {
+            Id = user.Id,
+            Nombre = user.Nombre,
+            Apellido = user.Apellido,
+            Email = user.Email,
+            FechaRegistro = user.FechaRegistro,
+            Activo = user.Activo
+        };
+    }
 }
