@@ -6,18 +6,17 @@ namespace Products.API.Services;
 
 public class ProductService
 {
-    // Por ahora usamos una lista en memoria (después la cátedra provee la persistencia)
-    private static List<Product> _products = new();
+    private static readonly List<Product> _products = new();
 
     public List<ProductResponse> GetAll(string? categoria, string? nombre)
     {
         var query = _products.AsQueryable();
 
-        if (!string.IsNullOrEmpty(categoria))
-            query = query.Where(p => p.Categoria == categoria);
+        if (!string.IsNullOrWhiteSpace(categoria))
+            query = query.Where(p => p.Categoria.Contains(categoria, StringComparison.OrdinalIgnoreCase));
 
-        if (!string.IsNullOrEmpty(nombre))
-            query = query.Where(p => p.Nombre.Contains(nombre));
+        if (!string.IsNullOrWhiteSpace(nombre))
+            query = query.Where(p => p.Nombre.Contains(nombre, StringComparison.OrdinalIgnoreCase));
 
         return query.Select(MapToResponse).ToList();
     }
@@ -25,6 +24,7 @@ public class ProductService
     public ProductResponse GetById(Guid id)
     {
         var product = _products.FirstOrDefault(p => p.Id == id);
+
         if (product == null)
             throw new NotFoundException("PRD-001", "Producto no encontrado.");
 
@@ -33,10 +33,14 @@ public class ProductService
 
     public ProductResponse Create(CreateProductRequest request)
     {
-        // Validar duplicado
-        var existe = _products.Any(p => p.Nombre == request.Nombre && p.Categoria == request.Categoria);
+        ValidateProductRequest(request);
+
+        var existe = _products.Any(p =>
+            p.Nombre.Equals(request.Nombre, StringComparison.OrdinalIgnoreCase) &&
+            p.Categoria.Equals(request.Categoria, StringComparison.OrdinalIgnoreCase));
+
         if (existe)
-            throw new BusinessRuleException("PRD-003", $"Ya existe un producto con ese nombre en la categoría '{request.Categoria}'.");
+            throw new ConflictException("PRD-003", $"Ya existe un producto con ese nombre en la categoría '{request.Categoria}'.");
 
         var product = new Product
         {
@@ -50,14 +54,26 @@ public class ProductService
         };
 
         _products.Add(product);
+
         return MapToResponse(product);
     }
 
     public ProductResponse Update(Guid id, CreateProductRequest request)
     {
+        ValidateProductRequest(request);
+
         var product = _products.FirstOrDefault(p => p.Id == id);
+
         if (product == null)
             throw new NotFoundException("PRD-001", "Producto no encontrado.");
+
+        var existeDuplicado = _products.Any(p =>
+            p.Id != id &&
+            p.Nombre.Equals(request.Nombre, StringComparison.OrdinalIgnoreCase) &&
+            p.Categoria.Equals(request.Categoria, StringComparison.OrdinalIgnoreCase));
+
+        if (existeDuplicado)
+            throw new ConflictException("PRD-003", $"Ya existe un producto con ese nombre en la categoría '{request.Categoria}'.");
 
         product.Nombre = request.Nombre;
         product.Descripcion = request.Descripcion;
@@ -71,20 +87,53 @@ public class ProductService
     public void Delete(Guid id)
     {
         var product = _products.FirstOrDefault(p => p.Id == id);
+
         if (product == null)
             throw new NotFoundException("PRD-001", "Producto no encontrado.");
+
+        // PRD-004 queda pendiente para cuando integren con Orders.API.
+        // Ejemplo futuro:
+        // if (TieneOrdenesActivas(id))
+        //     throw new ConflictException("PRD-004", "El producto tiene órdenes activas y no puede eliminarse.");
 
         _products.Remove(product);
     }
 
-    private static ProductResponse MapToResponse(Product p) => new()
+    private static void ValidateProductRequest(CreateProductRequest request)
     {
-        Id = p.Id,
-        Nombre = p.Nombre,
-        Descripcion = p.Descripcion,
-        Precio = p.Precio,
-        Stock = p.Stock,
-        Categoria = p.Categoria,
-        FechaCreacion = p.FechaCreacion
-    };
+        if (request == null)
+            throw new ValidationException("PRD-002", "Los datos del producto son inválidos.");
+
+        if (string.IsNullOrWhiteSpace(request.Nombre))
+            throw new ValidationException("PRD-002", "El nombre del producto es requerido.");
+
+        if (request.Nombre.Length > 100)
+            throw new ValidationException("PRD-002", "El nombre del producto no puede superar los 100 caracteres.");
+
+        if (!string.IsNullOrWhiteSpace(request.Descripcion) && request.Descripcion.Length > 500)
+            throw new ValidationException("PRD-002", "La descripción no puede superar los 500 caracteres.");
+
+        if (request.Precio <= 0)
+            throw new ValidationException("PRD-002", "El precio debe ser mayor a 0.");
+
+        if (request.Stock < 0)
+            throw new ValidationException("PRD-002", "El stock debe ser mayor o igual a 0.");
+
+        if (string.IsNullOrWhiteSpace(request.Categoria))
+            throw new ValidationException("PRD-002", "La categoría es requerida.");
+    }
+
+    private static ProductResponse MapToResponse(Product product)
+    {
+        return new ProductResponse
+        {
+            Id = product.Id,
+            Nombre = product.Nombre,
+            Descripcion = product.Descripcion,
+            Precio = product.Precio,
+            Stock = product.Stock,
+            Categoria = product.Categoria,
+            FechaCreacion = product.FechaCreacion
+        };
+    }
 }
