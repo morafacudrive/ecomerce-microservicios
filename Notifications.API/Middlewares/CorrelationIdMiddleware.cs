@@ -1,4 +1,4 @@
-﻿namespace Notificaciones.API.Middlewares
+﻿namespace Notifications.API.Middlewares
 {
     public class CorrelationIdMiddleware
     {

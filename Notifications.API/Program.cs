@@ -1,5 +1,8 @@
-using Microsoft.AspNetCore.Mvc;
 using Notifications.API.Services;
+using Microsoft.AspNetCore.Mvc;
+using Notifications.API.ExceptionHandlers;
+using Notifications.API.Middlewares;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -119,7 +122,7 @@ try
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Notificaciones.API termin� inesperadamente.");
+    Log.Fatal(ex, "Notificaciones.API terminó inesperadamente.");
 }
 finally
 {
