@@ -1,7 +1,5 @@
-using Microsoft.AspNetCore.Mvc;
-using Orders.API.ExceptionHandlers;
-using Orders.API.Middlewares;
-using Orders.API.Services;
+using Users.API.Services;
+using Users.API.Middlewares;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -14,7 +12,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
     .Enrich.FromLogContext()
-    .Enrich.WithProperty("Servicio", "Orders.API")
+    .Enrich.WithProperty("Servicio", "Users.API")
     .WriteTo.Console(outputTemplate:
         "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] [{CorrelationId}] {Message:lj} {NewLine}{Exception}")
     .WriteTo.File(
@@ -24,43 +22,10 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 );
 
 builder.Services.AddControllers();
-
-builder.Services.Configure<ApiBehaviorOptions>(options =>
-{
-    options.InvalidModelStateResponseFactory = context =>
-    {
-        var errores = context.ModelState
-            .Where(x => x.Value?.Errors.Count > 0)
-            .SelectMany(x => x.Value!.Errors.Select(e => e.ErrorMessage))
-            .ToList();
-
-        var mensaje = string.Join("; ", errores);
-
-        return new BadRequestObjectResult(new
-        {
-            type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
-            title = "Bad Request",
-            status = 400,
-            detail = "La solicitud contiene datos invÃ¡lidos.",
-            instance = context.HttpContext.Request.Path.Value,
-            errorCode = "ORD-006",
-            errorMessage = mensaje
-        });
-    };
-});
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
-builder.Services.AddSingleton<OrderService>();
-
-builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
-builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
-builder.Services.AddExceptionHandler<ConflictExceptionHandler>();
-builder.Services.AddExceptionHandler<UnprocessableExceptionHandler>();
-builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-
-builder.Services.AddProblemDetails();
+builder.Services.AddSingleton<UserService>();
 
 var app = builder.Build();
 
@@ -70,14 +35,11 @@ app.UseSerilogRequestLogging();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
-
-app.UseExceptionHandler();
-
 app.MapControllers();
 
 try
 {
-    Log.Information("Iniciando Orders.API...");
+    Log.Information("Iniciando Users.API...");
     app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         ResponseWriter = async (context, report) =>
@@ -127,7 +89,7 @@ try
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Orders.API terminó inesperadamente.");
+    Log.Fatal(ex, "Users.API termin� inesperadamente.");
 }
 finally
 {
