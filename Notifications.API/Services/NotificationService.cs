@@ -1,13 +1,12 @@
-﻿using Notifications.API.DTOs;
+﻿using Notifications.API.Data;
+using Notifications.API.DTOs;
 using Notifications.API.Exceptions;
 using Notifications.API.Models;
 
 namespace Notifications.API.Services;
 
-public class NotificationService
+public class NotificationService(NotificationRepository repo)
 {
-    private static readonly List<Notification> _notifications = new();
-
     private static readonly List<string> TiposValidos = new()
     {
         "Email",
@@ -15,7 +14,7 @@ public class NotificationService
         "SMS"
     };
 
-    public NotificationResponse Send(SendNotificationRequest request)
+    public async Task<NotificationResponse> SendAsync(SendNotificationRequest request)
     {
         if (request.UsuarioId == Guid.Empty)
             throw new ValidationException("NTF-002", "El UsuarioId es requerido.");
@@ -42,19 +41,17 @@ public class NotificationService
             FechaEnvio = DateTime.UtcNow
         };
 
-        _notifications.Add(notification);
+        await repo.CreateAsync(notification);
 
         return MapToResponse(notification);
     }
 
-    public List<NotificationResponse> GetByUserId(Guid userId)
+    public async Task<List<NotificationResponse>> GetByUserIdAsync(Guid userId)
     {
         if (userId == Guid.Empty)
             throw new ValidationException("NTF-002", "El UsuarioId es requerido.");
 
-        var notifications = _notifications
-            .Where(n => n.UsuarioId == userId)
-            .ToList();
+        var notifications = await repo.GetByUsuarioIdAsync(userId.ToString());
 
         if (!notifications.Any())
             throw new NotFoundException("NTF-003", "No se encontraron notificaciones para el usuario.");

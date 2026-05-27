@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Users.API.ExceptionHandlers;
 using Users.API.Services;
 using Users.API.Middlewares;
+using Users.API.Data;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -19,12 +20,13 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
         "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] [{CorrelationId}] {Message:lj} {NewLine}{Exception}")
     .WriteTo.File(
         formatter: new Serilog.Formatting.Json.JsonFormatter(),
-        path: "logs/products-.log",
+        path: "logs/users-.log",
         rollingInterval: RollingInterval.Day)
 );
 
 builder.Services.AddControllers();
-
+builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddSingleton<UserRepository>();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -41,7 +43,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
             title = "Bad Request",
             status = 400,
-            detail = "La solicitud contiene datos invÃ¡lidos.",
+            detail = "La solicitud contiene datos inválidos.",
             instance = context.HttpContext.Request.Path.Value,
             errorCode = "USR-002",
             errorMessage = mensaje
@@ -73,11 +75,17 @@ app.UseHttpsRedirection();
 
 app.UseExceptionHandler();
 
+using (var scope = app.Services.CreateScope())
+    scope.ServiceProvider
+        .GetRequiredService<DatabaseInitializer>()
+        .Initialize();
+
 app.MapControllers();
 
 try
 {
     Log.Information("Iniciando Users.API...");
+
     app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         ResponseWriter = async (context, report) =>
@@ -96,40 +104,4 @@ try
         }
     });
 
-    app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
-    {
-        Predicate = check => check.Tags.Contains("ready"),
-        ResponseWriter = async (context, report) =>
-        {
-            context.Response.ContentType = "application/json";
-            var result = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                estado = report.Status.ToString()
-            });
-            await context.Response.WriteAsync(result);
-        }
-    });
-
-    app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
-    {
-        Predicate = _ => false,
-        ResponseWriter = async (context, report) =>
-        {
-            context.Response.ContentType = "application/json";
-            var result = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                estado = report.Status.ToString()
-            });
-            await context.Response.WriteAsync(result);
-        }
-    });
-    app.Run();
-}
-catch (Exception ex)
-{
-    Log.Fatal(ex, "Users.API terminó inesperadamente.");
-}
-finally
-{
-    Log.CloseAndFlush();
-}
+    app.MapHealthChecks("/health/ready", new

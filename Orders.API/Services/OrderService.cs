@@ -1,13 +1,12 @@
-﻿using Orders.API.DTOs;
+﻿using Orders.API.Data;
+using Orders.API.DTOs;
 using Orders.API.Exceptions;
 using Orders.API.Models;
 
 namespace Orders.API.Services;
 
-public class OrderService
+public class OrderService(OrderRepository repo)
 {
-    private static readonly List<Order> _orders = new();
-
     private static readonly List<string> EstadosValidos = new()
     {
         "Pendiente",
@@ -26,19 +25,15 @@ public class OrderService
         "Confirmada->Cancelada"
     };
 
-    public List<OrderResponse> GetAll(Guid? usuarioId)
+    public async Task<List<OrderResponse>> GetAllAsync(Guid? usuarioId)
     {
-        var query = _orders.AsQueryable();
-
-        if (usuarioId.HasValue)
-            query = query.Where(o => o.UsuarioId == usuarioId);
-
-        return query.Select(MapToResponse).ToList();
+        var orders = await repo.GetAllAsync(usuarioId?.ToString());
+        return orders.Select(MapToResponse).ToList();
     }
 
-    public OrderResponse GetById(Guid id)
+    public async Task<OrderResponse> GetByIdAsync(Guid id)
     {
-        var order = _orders.FirstOrDefault(o => o.Id == id);
+        var order = await repo.GetByIdAsync(id.ToString());
 
         if (order == null)
             throw new NotFoundException("ORD-001", "Orden no encontrada.");
@@ -46,7 +41,7 @@ public class OrderService
         return MapToResponse(order);
     }
 
-    public OrderResponse Create(CreateOrderRequest request)
+    public async Task<OrderResponse> CreateAsync(CreateOrderRequest request)
     {
         ValidateCreateOrderRequest(request);
 
@@ -67,6 +62,8 @@ public class OrderService
             UsuarioId = request.UsuarioId,
             Items = request.Items.Select(i => new OrderItem
             {
+                Id = Guid.NewGuid(),
+                OrderId = Guid.Empty, // se asigna abajo
                 ProductoId = i.ProductoId,
                 Cantidad = i.Cantidad,
                 PrecioUnitario = 0
@@ -75,14 +72,17 @@ public class OrderService
             FechaCreacion = DateTime.UtcNow
         };
 
+        foreach (var item in order.Items)
+            item.OrderId = order.Id;
+
         order.Total = order.Items.Sum(i => i.Cantidad * i.PrecioUnitario);
 
-        _orders.Add(order);
+        await repo.CreateAsync(order);
 
         return MapToResponse(order);
     }
 
-    public OrderResponse UpdateStatus(Guid id, UpdateOrderStatusRequest request)
+    public async Task<OrderResponse> UpdateStatusAsync(Guid id, UpdateOrderStatusRequest request)
     {
         if (request == null)
             throw new ValidationException("ORD-002", "Los datos de la orden son inválidos.");
@@ -93,7 +93,7 @@ public class OrderService
         if (!EstadosValidos.Contains(request.Estado))
             throw new ValidationException("ORD-002", $"El estado '{request.Estado}' no es válido.");
 
-        var order = _orders.FirstOrDefault(o => o.Id == id);
+        var order = await repo.GetByIdAsync(id.ToString());
 
         if (order == null)
             throw new NotFoundException("ORD-001", "Orden no encontrada.");
@@ -102,6 +102,8 @@ public class OrderService
 
         if (!TransicionesValidas.Contains(transicion))
             throw new ConflictException("ORD-006", $"Una orden en estado '{order.Estado}' no puede pasar a '{request.Estado}'.");
+
+        await repo.UpdateEstadoAsync(id.ToString(), request.Estado);
 
         order.Estado = request.Estado;
 
@@ -135,15 +137,4 @@ public class OrderService
         {
             Id = order.Id,
             UsuarioId = order.UsuarioId,
-            Items = order.Items.Select(i => new OrderItemResponse
-            {
-                ProductoId = i.ProductoId,
-                Cantidad = i.Cantidad,
-                PrecioUnitario = i.PrecioUnitario
-            }).ToList(),
-            Total = order.Total,
-            Estado = order.Estado,
-            FechaCreacion = order.FechaCreacion
-        };
-    }
-}
+            Items = order.Items.Select(i => new OrderIte

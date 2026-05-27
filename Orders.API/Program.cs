@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Orders.API.ExceptionHandlers;
 using Orders.API.Middlewares;
 using Orders.API.Services;
+using Orders.API.Data;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -19,12 +20,13 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
         "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] [{CorrelationId}] {Message:lj} {NewLine}{Exception}")
     .WriteTo.File(
         formatter: new Serilog.Formatting.Json.JsonFormatter(),
-        path: "logs/products-.log",
+        path: "logs/orders-.log",
         rollingInterval: RollingInterval.Day)
 );
 
 builder.Services.AddControllers();
-
+builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddSingleton<OrderRepository>();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -41,7 +43,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
             title = "Bad Request",
             status = 400,
-            detail = "La solicitud contiene datos invÃ¡lidos.",
+            detail = "La solicitud contiene datos inválidos.",
             instance = context.HttpContext.Request.Path.Value,
             errorCode = "ORD-006",
             errorMessage = mensaje
@@ -73,11 +75,17 @@ app.UseHttpsRedirection();
 
 app.UseExceptionHandler();
 
+using (var scope = app.Services.CreateScope())
+    scope.ServiceProvider
+        .GetRequiredService<DatabaseInitializer>()
+        .Initialize();
+
 app.MapControllers();
 
 try
 {
     Log.Information("Iniciando Orders.API...");
+
     app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         ResponseWriter = async (context, report) =>
@@ -123,6 +131,7 @@ try
             await context.Response.WriteAsync(result);
         }
     });
+
     app.Run();
 }
 catch (Exception ex)

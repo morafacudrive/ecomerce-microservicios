@@ -1,29 +1,21 @@
-﻿using Products.API.DTOs;
+﻿using Products.API.Data;
+using Products.API.DTOs;
 using Products.API.Exceptions;
 using Products.API.Models;
 
 namespace Products.API.Services;
 
-public class ProductService
+public class ProductService(ProductRepository repo)
 {
-    private static readonly List<Product> _products = new();
-
-    public List<ProductResponse> GetAll(string? categoria, string? nombre)
+    public async Task<List<ProductResponse>> GetAllAsync(string? categoria, string? nombre)
     {
-        var query = _products.AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(categoria))
-            query = query.Where(p => p.Categoria.Contains(categoria, StringComparison.OrdinalIgnoreCase));
-
-        if (!string.IsNullOrWhiteSpace(nombre))
-            query = query.Where(p => p.Nombre.Contains(nombre, StringComparison.OrdinalIgnoreCase));
-
-        return query.Select(MapToResponse).ToList();
+        var products = await repo.GetAllAsync(categoria, nombre);
+        return products.Select(MapToResponse).ToList();
     }
 
-    public ProductResponse GetById(Guid id)
+    public async Task<ProductResponse> GetByIdAsync(Guid id)
     {
-        var product = _products.FirstOrDefault(p => p.Id == id);
+        var product = await repo.GetByIdAsync(id.ToString());
 
         if (product == null)
             throw new NotFoundException("PRD-001", "Producto no encontrado.");
@@ -31,15 +23,13 @@ public class ProductService
         return MapToResponse(product);
     }
 
-    public ProductResponse Create(CreateProductRequest request)
+    public async Task<ProductResponse> CreateAsync(CreateProductRequest request)
     {
         ValidateProductRequest(request);
 
-        var existe = _products.Any(p =>
-            p.Nombre.Equals(request.Nombre, StringComparison.OrdinalIgnoreCase) &&
-            p.Categoria.Equals(request.Categoria, StringComparison.OrdinalIgnoreCase));
+        var existe = await repo.GetByNombreYCategoriaAsync(request.Nombre, request.Categoria);
 
-        if (existe)
+        if (existe != null)
             throw new ConflictException("PRD-003", $"Ya existe un producto con ese nombre en la categoría '{request.Categoria}'.");
 
         var product = new Product
@@ -53,26 +43,23 @@ public class ProductService
             FechaCreacion = DateTime.UtcNow
         };
 
-        _products.Add(product);
+        await repo.CreateAsync(product);
 
         return MapToResponse(product);
     }
 
-    public ProductResponse Update(Guid id, CreateProductRequest request)
+    public async Task<ProductResponse> UpdateAsync(Guid id, CreateProductRequest request)
     {
         ValidateProductRequest(request);
 
-        var product = _products.FirstOrDefault(p => p.Id == id);
+        var product = await repo.GetByIdAsync(id.ToString());
 
         if (product == null)
             throw new NotFoundException("PRD-001", "Producto no encontrado.");
 
-        var existeDuplicado = _products.Any(p =>
-            p.Id != id &&
-            p.Nombre.Equals(request.Nombre, StringComparison.OrdinalIgnoreCase) &&
-            p.Categoria.Equals(request.Categoria, StringComparison.OrdinalIgnoreCase));
+        var duplicado = await repo.GetByNombreYCategoriaAsync(request.Nombre, request.Categoria);
 
-        if (existeDuplicado)
+        if (duplicado != null && duplicado.Id != id)
             throw new ConflictException("PRD-003", $"Ya existe un producto con ese nombre en la categoría '{request.Categoria}'.");
 
         product.Nombre = request.Nombre;
@@ -81,22 +68,19 @@ public class ProductService
         product.Stock = request.Stock;
         product.Categoria = request.Categoria;
 
+        await repo.UpdateAsync(product);
+
         return MapToResponse(product);
     }
 
-    public void Delete(Guid id)
+    public async Task DeleteAsync(Guid id)
     {
-        var product = _products.FirstOrDefault(p => p.Id == id);
+        var product = await repo.GetByIdAsync(id.ToString());
 
         if (product == null)
             throw new NotFoundException("PRD-001", "Producto no encontrado.");
 
-        // PRD-004 queda pendiente para cuando integren con Orders.API.
-        // Ejemplo futuro:
-        // if (TieneOrdenesActivas(id))
-        //     throw new ConflictException("PRD-004", "El producto tiene órdenes activas y no puede eliminarse.");
-
-        _products.Remove(product);
+        await repo.DeleteAsync(id.ToString());
     }
 
     private static void ValidateProductRequest(CreateProductRequest request)

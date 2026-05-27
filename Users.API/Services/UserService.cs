@@ -1,14 +1,13 @@
-﻿using Users.API.DTOs;
+﻿using Users.API.Data;
+using Users.API.DTOs;
 using Users.API.Exceptions;
 using Users.API.Models;
 
 namespace Users.API.Services;
 
-public class UserService
+public class UserService(UserRepository repo)
 {
-    private static readonly List<User> _users = new();
-
-    public UserResponse Register(RegisterRequest request)
+    public async Task<UserResponse> RegisterAsync(RegisterRequest request)
     {
         if (request == null)
             throw new ValidationException("USR-002", "Los datos del usuario son inválidos.");
@@ -25,10 +24,9 @@ public class UserService
         if (string.IsNullOrWhiteSpace(request.Password))
             throw new ValidationException("USR-002", "La contraseña es requerida.");
 
-        var existe = _users.Any(u =>
-            u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+        var existe = await repo.GetByEmailAsync(request.Email);
 
-        if (existe)
+        if (existe != null)
             throw new ConflictException("USR-001", $"El email '{request.Email}' ya está registrado.");
 
         var user = new User
@@ -43,12 +41,12 @@ public class UserService
             IntentosFallidos = 0
         };
 
-        _users.Add(user);
+        await repo.CreateAsync(user);
 
         return MapToResponse(user);
     }
 
-    public UserResponse Login(LoginRequest request)
+    public async Task<UserResponse> LoginAsync(LoginRequest request)
     {
         if (request == null)
             throw new ValidationException("USR-002", "Los datos del usuario son inválidos.");
@@ -59,8 +57,7 @@ public class UserService
         if (string.IsNullOrWhiteSpace(request.Password))
             throw new ValidationException("USR-002", "La contraseña es requerida.");
 
-        var user = _users.FirstOrDefault(u =>
-            u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+        var user = await repo.GetByEmailAsync(request.Email);
 
         if (user == null)
             throw new UnauthorizedException("USR-003", "Credenciales incorrectas.");
@@ -74,14 +71,16 @@ public class UserService
         if (user.PasswordHash != request.Password)
         {
             user.IntentosFallidos++;
-
             if (user.IntentosFallidos >= 3)
                 user.Activo = false;
+
+            await repo.UpdateAsync(user);
 
             throw new UnauthorizedException("USR-003", "Credenciales incorrectas.");
         }
 
         user.IntentosFallidos = 0;
+        await repo.UpdateAsync(user);
 
         return MapToResponse(user);
     }

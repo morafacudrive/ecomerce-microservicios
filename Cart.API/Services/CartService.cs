@@ -1,27 +1,26 @@
-﻿using Cart.API.DTOs;
+﻿using Cart.API.Data;
+using Cart.API.DTOs;
 using Cart.API.Exceptions;
 using Cart.API.Models;
 
 namespace Cart.API.Services;
 
-public class CartService
+public class CartService(CartRepository repo)
 {
-    private static readonly List<Cart.API.Models.Cart> _carts = new();
-
-    public CartResponse GetByUserId(Guid userId)
+    public async Task<CartResponse> GetByUserIdAsync(Guid userId)
     {
         if (userId == Guid.Empty)
             throw new ValidationException("CRT-004", "El UsuarioId es requerido.");
 
-        var cart = _carts.FirstOrDefault(c => c.UsuarioId == userId);
+        var cart = await repo.GetByUsuarioIdAsync(userId);
 
         if (cart == null)
             throw new NotFoundException("CRT-001", "Carrito no encontrado.");
 
         return MapToResponse(cart);
     }
-
-    public CartResponse AddItem(Guid userId, AddItemRequest request)
+    
+    public async Task<CartResponse> AddItemAsync(Guid userId, AddItemRequest request)
     {
         if (userId == Guid.Empty)
             throw new ValidationException("CRT-004", "El UsuarioId es requerido.");
@@ -36,11 +35,10 @@ public class CartService
             throw new ValidationException("CRT-004", "Cantidad inválida.");
 
         // CRT-003 queda pendiente para cuando validen stock contra Products.API.
-        // Ejemplo futuro:
         // if (request.Cantidad > stockDisponible)
         //     throw new UnprocessableException("CRT-003", $"Stock insuficiente. Disponible: {stockDisponible}, solicitado: {request.Cantidad}.");
 
-        var cart = _carts.FirstOrDefault(c => c.UsuarioId == userId);
+        var cart = await repo.GetByUsuarioIdAsync(userId);
 
         if (cart == null)
         {
@@ -50,8 +48,6 @@ public class CartService
                 Items = new List<CartItem>(),
                 FechaActualizacion = DateTime.UtcNow
             };
-
-            _carts.Add(cart);
         }
 
         var item = cart.Items.FirstOrDefault(i => i.ProductoId == request.ProductoId);
@@ -60,6 +56,7 @@ public class CartService
         {
             cart.Items.Add(new CartItem
             {
+                UsuarioId = userId,
                 ProductoId = request.ProductoId,
                 Cantidad = request.Cantidad
             });
@@ -71,10 +68,12 @@ public class CartService
 
         cart.FechaActualizacion = DateTime.UtcNow;
 
+        await repo.SaveAsync(cart);
+
         return MapToResponse(cart);
     }
 
-    public CartResponse UpdateItem(Guid userId, Guid productId, UpdateItemRequest request)
+    public async Task<CartResponse> UpdateItemAsync(Guid userId, Guid productId, UpdateItemRequest request)
     {
         if (userId == Guid.Empty)
             throw new ValidationException("CRT-004", "El UsuarioId es requerido.");
@@ -89,11 +88,10 @@ public class CartService
             throw new ValidationException("CRT-004", "Cantidad inválida.");
 
         // CRT-003 queda pendiente para cuando validen stock contra Products.API.
-        // Ejemplo futuro:
         // if (request.Cantidad > stockDisponible)
         //     throw new UnprocessableException("CRT-003", $"Stock insuficiente. Disponible: {stockDisponible}, solicitado: {request.Cantidad}.");
 
-        var cart = _carts.FirstOrDefault(c => c.UsuarioId == userId);
+        var cart = await repo.GetByUsuarioIdAsync(userId);
 
         if (cart == null)
             throw new NotFoundException("CRT-001", "Carrito no encontrado.");
@@ -106,10 +104,12 @@ public class CartService
         item.Cantidad = request.Cantidad;
         cart.FechaActualizacion = DateTime.UtcNow;
 
+        await repo.SaveAsync(cart);
+
         return MapToResponse(cart);
     }
 
-    public void RemoveItem(Guid userId, Guid productId)
+    public async Task RemoveItemAsync(Guid userId, Guid productId)
     {
         if (userId == Guid.Empty)
             throw new ValidationException("CRT-004", "El UsuarioId es requerido.");
@@ -117,7 +117,7 @@ public class CartService
         if (productId == Guid.Empty)
             throw new NotFoundException("CRT-002", "Producto no encontrado.");
 
-        var cart = _carts.FirstOrDefault(c => c.UsuarioId == userId);
+        var cart = await repo.GetByUsuarioIdAsync(userId);
 
         if (cart == null)
             throw new NotFoundException("CRT-001", "Carrito no encontrado.");
@@ -129,20 +129,21 @@ public class CartService
 
         cart.Items.Remove(item);
         cart.FechaActualizacion = DateTime.UtcNow;
+
+        await repo.SaveAsync(cart);
     }
 
-    public void ClearCart(Guid userId)
+    public async Task ClearCartAsync(Guid userId)
     {
         if (userId == Guid.Empty)
             throw new ValidationException("CRT-004", "El UsuarioId es requerido.");
 
-        var cart = _carts.FirstOrDefault(c => c.UsuarioId == userId);
+        var cart = await repo.GetByUsuarioIdAsync(userId);
 
         if (cart == null)
             throw new NotFoundException("CRT-001", "Carrito no encontrado.");
 
-        cart.Items.Clear();
-        cart.FechaActualizacion = DateTime.UtcNow;
+        await repo.DeleteAsync(userId);
     }
 
     private static CartResponse MapToResponse(Cart.API.Models.Cart cart)

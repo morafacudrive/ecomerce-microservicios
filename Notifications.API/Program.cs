@@ -2,7 +2,12 @@ using Notifications.API.Services;
 using Microsoft.AspNetCore.Mvc;
 using Notifications.API.ExceptionHandlers;
 using Notifications.API.Middlewares;
+using Notifications.API.Data;
 using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,17 +15,18 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
     .Enrich.FromLogContext()
-    .Enrich.WithProperty("Servicio", "Notificaciones.API")
+    .Enrich.WithProperty("Servicio", "Notifications.API")
     .WriteTo.Console(outputTemplate:
         "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] [{CorrelationId}] {Message:lj} {NewLine}{Exception}")
     .WriteTo.File(
         formatter: new Serilog.Formatting.Json.JsonFormatter(),
-        path: "logs/products-.log",
+        path: "logs/notifications-.log",
         rollingInterval: RollingInterval.Day)
 );
 
 builder.Services.AddControllers();
-
+builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddSingleton<NotificationRepository>();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -50,7 +56,6 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
 builder.Services.AddSingleton<NotificationService>();
 
-// Exception Handlers
 builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -65,14 +70,20 @@ app.UseSerilogRequestLogging();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
-// Activa el manejo global de excepciones
+
 app.UseExceptionHandler();
+
+using (var scope = app.Services.CreateScope())
+    scope.ServiceProvider
+        .GetRequiredService<DatabaseInitializer>()
+        .Initialize();
 
 app.MapControllers();
 
 try
 {
-    Log.Information("Iniciando Notificaciones.API...");
+    Log.Information("Iniciando Notifications.API...");
+
     app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         ResponseWriter = async (context, report) =>
@@ -118,11 +129,12 @@ try
             await context.Response.WriteAsync(result);
         }
     });
+
     app.Run();
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Notificaciones.API terminó inesperadamente.");
+    Log.Fatal(ex, "Notifications.API terminó inesperadamente.");
 }
 finally
 {

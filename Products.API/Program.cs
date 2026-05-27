@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Products.API.ExceptionHandlers;
 using Products.API.Services;
 using Products.API.Middlewares;
+using Products.API.Data;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -16,15 +17,16 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Servicio", "Products.API")
     .WriteTo.Console(outputTemplate:
-    "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] [{CorrelationId}] {Message:lj} {NewLine}{Exception}")
+        "[{Timestamp:HH:mm:ss} {Level:u3}] [{Servicio}] [{CorrelationId}] {Message:lj} {NewLine}{Exception}")
     .WriteTo.File(
-    formatter: new Serilog.Formatting.Json.JsonFormatter(),
-    path: "logs/products-.log",
-    rollingInterval: RollingInterval.Day)
+        formatter: new Serilog.Formatting.Json.JsonFormatter(),
+        path: "logs/products-.log",
+        rollingInterval: RollingInterval.Day)
 );
 
 builder.Services.AddControllers();
-
+builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddSingleton<ProductRepository>();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -41,7 +43,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
             title = "Bad Request",
             status = 400,
-            detail = "La solicitud contiene datos invÃ¡lidos.",
+            detail = "La solicitud contiene datos inválidos.",
             instance = context.HttpContext.Request.Path.Value,
             errorCode = "PRD-002",
             errorMessage = mensaje
@@ -73,11 +75,17 @@ app.UseHttpsRedirection();
 
 app.UseExceptionHandler();
 
+using (var scope = app.Services.CreateScope())
+    scope.ServiceProvider
+        .GetRequiredService<DatabaseInitializer>()
+        .Initialize();
+
 app.MapControllers();
 
 try
 {
     Log.Information("Iniciando Products.API...");
+
     app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         ResponseWriter = async (context, report) =>
@@ -113,23 +121,4 @@ try
     app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         Predicate = _ => false,
-        ResponseWriter = async (context, report) =>
-        {
-            context.Response.ContentType = "application/json";
-            var result = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                estado = report.Status.ToString()
-            });
-            await context.Response.WriteAsync(result);
-        }
-    });
-    app.Run();
-}
-catch (Exception ex)
-{
-    Log.Fatal(ex, "Products.API terminó inesperadamente.");
-}
-finally
-{
-    Log.CloseAndFlush();
-}
+        Resp

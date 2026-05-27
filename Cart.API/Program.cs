@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Cart.API.ExceptionHandlers;
 using Cart.API.Services;
-using Cart.API.Middlewares; 
+using Cart.API.Middlewares;
 using Serilog;
+using Cart.API.Data;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -24,7 +25,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 );
 
 builder.Services.AddControllers();
-
+builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddSingleton<CartRepository>();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -41,7 +43,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
             title = "Bad Request",
             status = 400,
-            detail = "La solicitud contiene datos inv√°lidos.",
+            detail = "La solicitud contiene datos inv·lidos.",
             instance = context.HttpContext.Request.Path.Value,
             errorCode = "CRT-004",
             errorMessage = mensaje
@@ -54,7 +56,6 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddHealthChecks();
 
-
 builder.Services.AddSingleton<CartService>();
 
 builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
@@ -66,7 +67,6 @@ builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
-
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 
@@ -75,6 +75,11 @@ app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
 app.UseExceptionHandler();
+
+using (var scope = app.Services.CreateScope())
+    scope.ServiceProvider
+        .GetRequiredService<DatabaseInitializer>()
+        .Initialize();
 
 app.MapControllers();
 
