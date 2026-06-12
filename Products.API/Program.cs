@@ -86,7 +86,6 @@ builder.Services.AddProblemDetails();
 var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
-
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseMiddleware<SecurityHeadersMiddleware>();
@@ -164,7 +163,7 @@ try
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Fallo al iniciar la aplicacion");
+    Log.Fatal(ex, "Products.API terminó inesperadamente");
 }
 finally
 {

@@ -16,37 +16,37 @@ public class CartController : ControllerBase
     }
 
     [HttpGet("{userId}")]
-    public IActionResult GetCart(Guid userId)
+    public async Task<IActionResult> GetCart(Guid userId)
     {
-        var cart = _service.GetByUserId(userId);
+        var cart = await _service.GetByUserIdAsync(userId);
         return Ok(cart);
     }
 
     [HttpPost("{userId}/items")]
-    public IActionResult AddItem(Guid userId, [FromBody] AddItemRequest request)
+    public async Task<IActionResult> AddItem(Guid userId, [FromBody] AddItemRequest request)
     {
-        var cart = _service.AddItem(userId, request);
+        var cart = await _service.AddItemAsync(userId, request);
         return Ok(cart);
     }
 
     [HttpPut("{userId}/items/{productId}")]
-    public IActionResult UpdateItem(Guid userId, Guid productId, [FromBody] UpdateItemRequest request)
+    public async Task<IActionResult> UpdateItem(Guid userId, Guid productId, [FromBody] UpdateItemRequest request)
     {
-        var cart = _service.UpdateItem(userId, productId, request);
+        var cart = await _service.UpdateItemAsync(userId, productId, request);
         return Ok(cart);
     }
 
     [HttpDelete("{userId}/items/{productId}")]
-    public IActionResult RemoveItem(Guid userId, Guid productId)
+    public async Task<IActionResult> RemoveItem(Guid userId, Guid productId)
     {
-        _service.RemoveItem(userId, productId);
+        await _service.RemoveItemAsync(userId, productId);
         return NoContent();
     }
 
     [HttpDelete("{userId}")]
-    public IActionResult ClearCart(Guid userId)
+    public async Task<IActionResult> ClearCart(Guid userId)
     {
-        _service.ClearCart(userId);
+        await _service.ClearCartAsync(userId);
         return NoContent();
     }
 }

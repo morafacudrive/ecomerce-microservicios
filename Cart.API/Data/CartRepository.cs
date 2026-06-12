@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using Microsoft.Data.Sqlite;
-using Cart.API.Models;
+using CartModel = Cart.API.Models.Cart;
+using CartItem = Cart.API.Models.CartItem;
 
 namespace Cart.API.Data;
 
@@ -9,10 +10,10 @@ public class CartRepository(IConfiguration config)
     private SqliteConnection CreateConnection() =>
         new(config.GetConnectionString("DefaultConnection") ?? "Data Source=cart.db");
 
-    public async Task<Cart?> GetByUsuarioIdAsync(Guid usuarioId)
+    public async Task<CartModel?> GetByUsuarioIdAsync(Guid usuarioId)
     {
         using var conn = CreateConnection();
-        var cart = await conn.QueryFirstOrDefaultAsync<Cart>(
+        var cart = await conn.QueryFirstOrDefaultAsync<CartModel>(
             "SELECT * FROM Carts WHERE UsuarioId = @UsuarioId",
             new { UsuarioId = usuarioId.ToString() });
 
@@ -27,7 +28,7 @@ public class CartRepository(IConfiguration config)
         return cart;
     }
 
-    public async Task SaveAsync(Cart cart)
+    public async Task SaveAsync(CartModel cart)
     {
         using var conn = CreateConnection();
         conn.Open();

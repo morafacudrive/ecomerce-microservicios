@@ -104,4 +104,41 @@ try
         }
     });
 
-    app.MapHealthChecks("/health/ready", new
+    app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready"),
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                estado = report.Status.ToString()
+            });
+            await context.Response.WriteAsync(result);
+        }
+    });
+
+    app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = _ => false,
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                estado = report.Status.ToString()
+            });
+            await context.Response.WriteAsync(result);
+        }
+    });
+
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Users.API terminó inesperadamente");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

@@ -16,7 +16,7 @@ public class OrderRepository(IConfiguration config)
         if (!string.IsNullOrEmpty(usuarioId)) sql += " WHERE UsuarioId = @UsuarioId";
         var orders = (await conn.QueryAsync<Order>(sql, new { UsuarioId = usuarioId })).ToList();
         foreach (var order in orders)
-            order.Items = (await GetItemsAsync(conn, order.Id)).ToList();
+            order.Items = (await GetItemsAsync(conn, order.Id.ToString())).ToList();
         return orders;
     }
 
