@@ -36,7 +36,7 @@ Sistema de eCommerce implementado como arquitectura de microservicios independie
 ### 1. Clonar el repositorio
 
 ```bash
-git clone <url-del-repositorio>
+git clone <[url-del-repositorio](https://github.com/morafacudrive/ecomerce-microservicios)>
 cd ecommerce-microservicios
 ```
 
