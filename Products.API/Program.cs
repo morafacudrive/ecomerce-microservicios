@@ -87,6 +87,8 @@ var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
+
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<HttpLoggingMiddleware>();
 
 app.UseSerilogRequestLogging();
