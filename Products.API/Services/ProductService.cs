@@ -73,12 +73,34 @@ public class ProductService(ProductRepository repo)
         return MapToResponse(product);
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task DeleteAsync(Guid id, IHttpClientFactory httpClientFactory, IConfiguration config)
     {
         var product = await repo.GetByIdAsync(id.ToString());
 
         if (product == null)
             throw new NotFoundException("PRD-001", "Producto no encontrado.");
+
+        // Verificar si tiene órdenes activas en Orders API
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            var ordersUrl = config["ServicesUrls:OrdersAPI"] ?? "https://localhost:7224";
+            var response = await client.GetAsync($"{ordersUrl}/api/orders?productoId={id}");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                if (json != "[]" && json != "null" && json.Length > 2)
+                    throw new ConflictException("PRD-004", "El producto tiene órdenes activas y no puede eliminarse.");
+            }
+        }
+        catch (ConflictException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Si Orders API no responde, permitimos el delete
+        }
 
         await repo.DeleteAsync(id.ToString());
     }
