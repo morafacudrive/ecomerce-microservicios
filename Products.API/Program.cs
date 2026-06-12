@@ -4,6 +4,7 @@ using Products.API.Services;
 using Products.API.Middlewares;
 using Products.API.Data;
 using Serilog;
+using Microsoft.AspNetCore.RateLimiting;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -25,6 +26,24 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 );
 
 builder.Services.AddControllers();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocal", builder => builder
+        .WithOrigins("http://localhost:3000", "http://localhost:5173")
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials());
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("api-limiter", config =>
+    {
+        config.PermitLimit = 100;
+        config.Window = TimeSpan.FromMinutes(1);
+    });
+});
+
 builder.Services.AddSingleton<DatabaseInitializer>();
 builder.Services.AddSingleton<ProductRepository>();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -67,11 +86,18 @@ builder.Services.AddProblemDetails();
 var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+
+app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseMiddleware<HttpLoggingMiddleware>();
+
 app.UseSerilogRequestLogging();
 
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
+
+app.UseCors("AllowLocal");
+app.UseRateLimiter();
 
 app.UseExceptionHandler();
 
