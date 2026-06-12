@@ -88,6 +88,8 @@ var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseMiddleware<SecurityHeadersMiddleware>();
+
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<HttpLoggingMiddleware>();
 
 app.UseSerilogRequestLogging();
@@ -147,4 +149,24 @@ try
     app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         Predicate = _ => false,
-        Resp
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                estado = report.Status.ToString()
+            });
+            await context.Response.WriteAsync(result);
+        }
+    });
+
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Fallo al iniciar la aplicacion");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
