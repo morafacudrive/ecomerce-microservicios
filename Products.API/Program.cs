@@ -1,16 +1,20 @@
+using Dapper;
 using Microsoft.AspNetCore.Mvc;
-using Products.API.ExceptionHandlers;
-using Products.API.Services;
-using Products.API.Middlewares;
-using Products.API.Data;
-using Serilog;
 using Microsoft.AspNetCore.RateLimiting;
+using Products.API.Data;
+using Products.API.ExceptionHandlers;
+using Products.API.Middlewares;
+using Products.API.Services;
+using Serilog;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+SqlMapper.AddTypeHandler(new GuidTypeHandler());
+Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
@@ -168,4 +172,12 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+public class GuidTypeHandler : SqlMapper.TypeHandler<Guid>
+{
+    public override void SetValue(System.Data.IDbDataParameter parameter, Guid value)
+        => parameter.Value = value.ToString();
+
+    public override Guid Parse(object value)
+        => Guid.Parse(value.ToString()!);
 }

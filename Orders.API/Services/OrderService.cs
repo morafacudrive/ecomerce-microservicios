@@ -142,7 +142,10 @@ public class OrderService(OrderRepository repo)
                 ProductoId = i.ProductoId,
                 Cantidad = i.Cantidad,
                 PrecioUnitario = i.PrecioUnitario
-            }).ToList()
+            }).ToList(),
+            Total = order.Total,
+            Estado = order.Estado,
+            FechaCreacion = order.FechaCreacion
         };
     }
 }
