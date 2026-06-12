@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Cart.API.ExceptionHandlers;
 using Cart.API.Services;
@@ -10,6 +11,8 @@ Log.Logger = new LoggerConfiguration()
     .CreateBootstrapLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+SqlMapper.AddTypeHandler(new GuidTypeHandler());
+
 
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
@@ -142,4 +145,12 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+public class GuidTypeHandler : SqlMapper.TypeHandler<Guid>
+{
+    public override void SetValue(System.Data.IDbDataParameter parameter, Guid value)
+        => parameter.Value = value.ToString();
+
+    public override Guid Parse(object value)
+        => Guid.Parse(value.ToString()!);
 }

@@ -1,8 +1,9 @@
+using Dapper;
 using Microsoft.AspNetCore.Mvc;
+using Orders.API.Data;
 using Orders.API.ExceptionHandlers;
 using Orders.API.Middlewares;
 using Orders.API.Services;
-using Orders.API.Data;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -10,6 +11,8 @@ Log.Logger = new LoggerConfiguration()
     .CreateBootstrapLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+SqlMapper.AddTypeHandler(new GuidTypeHandler());
+
 
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
@@ -141,4 +144,12 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+public class GuidTypeHandler : SqlMapper.TypeHandler<Guid>
+{
+    public override void SetValue(System.Data.IDbDataParameter parameter, Guid value)
+        => parameter.Value = value.ToString();
+
+    public override Guid Parse(object value)
+        => Guid.Parse(value.ToString()!);
 }
