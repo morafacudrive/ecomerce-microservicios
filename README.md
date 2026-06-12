@@ -179,4 +179,4 @@ Ver archivo `docs/Diagrama.png`
 
 ## Capturas de Swagger
 
-Ver carpeta `docs/swagger/`
+Ver carpeta `docs/`
