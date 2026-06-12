@@ -86,7 +86,6 @@ builder.Services.AddProblemDetails();
 var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
-
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<HttpLoggingMiddleware>();
 
@@ -147,4 +146,24 @@ try
     app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
     {
         Predicate = _ => false,
-        Resp
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            var result = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                estado = report.Status.ToString()
+            });
+            await context.Response.WriteAsync(result);
+        }
+    });
+
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Products.API terminó inesperadamente");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

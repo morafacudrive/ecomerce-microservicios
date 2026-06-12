@@ -16,37 +16,37 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
-    public IActionResult GetAll([FromQuery] string? categoria, [FromQuery] string? nombre)
+    public async Task<IActionResult> GetAll([FromQuery] string? categoria, [FromQuery] string? nombre)
     {
-        var products = _service.GetAll(categoria, nombre);
+        var products = await _service.GetAllAsync(categoria, nombre);
         return Ok(products);
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id)
     {
-        var product = _service.GetById(id);
+        var product = await _service.GetByIdAsync(id);
         return Ok(product);
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] CreateProductRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateProductRequest request)
     {
-        var product = _service.Create(request);
+        var product = await _service.CreateAsync(request);
         return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
     }
 
     [HttpPut("{id}")]
-    public IActionResult Update(Guid id, [FromBody] CreateProductRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] CreateProductRequest request)
     {
-        var product = _service.Update(id, request);
+        var product = await _service.UpdateAsync(id, request);
         return Ok(product);
     }
 
     [HttpDelete("{id}")]
-    public IActionResult Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id)
     {
-        _service.Delete(id);
+        await _service.DeleteAsync(id);
         return NoContent();
     }
 }

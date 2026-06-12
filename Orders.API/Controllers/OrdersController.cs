@@ -16,30 +16,30 @@ public class OrdersController : ControllerBase
     }
 
     [HttpGet]
-    public IActionResult GetAll([FromQuery] Guid? usuarioId)
+    public async Task<IActionResult> GetAll([FromQuery] Guid? usuarioId)
     {
-        var orders = _service.GetAll(usuarioId);
+        var orders = await _service.GetAllAsync(usuarioId);
         return Ok(orders);
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id)
     {
-        var order = _service.GetById(id);
+        var order = await _service.GetByIdAsync(id);
         return Ok(order);
     }
 
     [HttpPost]
-    public IActionResult Create([FromBody] CreateOrderRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateOrderRequest request)
     {
-        var order = _service.Create(request);
+        var order = await _service.CreateAsync(request);
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
     }
 
     [HttpPut("{id}/status")]
-    public IActionResult UpdateStatus(Guid id, [FromBody] UpdateOrderStatusRequest request)
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateOrderStatusRequest request)
     {
-        var order = _service.UpdateStatus(id, request);
+        var order = await _service.UpdateStatusAsync(id, request);
         return Ok(order);
     }
 }

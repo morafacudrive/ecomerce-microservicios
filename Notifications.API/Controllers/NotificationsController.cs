@@ -16,16 +16,16 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpPost("send")]
-    public IActionResult Send([FromBody] SendNotificationRequest request)
+    public async Task<IActionResult> Send([FromBody] SendNotificationRequest request)
     {
-        var notification = _service.Send(request);
+        var notification = await _service.SendAsync(request);
         return CreatedAtAction(nameof(GetByUserId), new { userId = notification.UsuarioId }, notification);
     }
 
     [HttpGet("{userId}")]
-    public IActionResult GetByUserId(Guid userId)
+    public async Task<IActionResult> GetByUserId(Guid userId)
     {
-        var notifications = _service.GetByUserId(userId);
+        var notifications = await _service.GetByUserIdAsync(userId);
         return Ok(notifications);
     }
 }

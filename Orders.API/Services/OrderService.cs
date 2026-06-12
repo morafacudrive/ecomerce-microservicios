@@ -137,4 +137,12 @@ public class OrderService(OrderRepository repo)
         {
             Id = order.Id,
             UsuarioId = order.UsuarioId,
-            Items = order.Items.Select(i => new OrderIte
+            Items = order.Items.Select(i => new OrderItemResponse
+            {
+                ProductoId = i.ProductoId,
+                Cantidad = i.Cantidad,
+                PrecioUnitario = i.PrecioUnitario
+            }).ToList()
+        };
+    }
+}
