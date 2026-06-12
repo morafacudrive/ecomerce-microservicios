@@ -173,7 +173,7 @@ Respuesta de ejemplo:
 
 ## Diagrama de arquitectura
 
-Ver archivo `docs/arquitectura.png`
+Ver archivo `docs/Diagrama.png`
 
 ---
 
