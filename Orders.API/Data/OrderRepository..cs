@@ -20,16 +20,6 @@ public class OrderRepository(IConfiguration config)
         return orders;
     }
 
-    public async Task<Order?> GetByIdAsync(string id)
-    {
-        using var conn = CreateConnection();
-        var order = await conn.QueryFirstOrDefaultAsync<Order>(
-            "SELECT * FROM Orders WHERE Id = @Id", new { Id = id });
-        if (order is not null)
-            order.Items = (await GetItemsAsync(conn, id)).ToList();
-        return order;
-    }
-
     public async Task<IEnumerable<Order>> GetActivesByProductoIdAsync(string productoId)
     {
         using var conn = CreateConnection();
@@ -41,6 +31,15 @@ public class OrderRepository(IConfiguration config)
         """, new { ProductoId = productoId });
     }
 
+    public async Task<Order?> GetByIdAsync(string id)
+    {
+        using var conn = CreateConnection();
+        var order = await conn.QueryFirstOrDefaultAsync<Order>(
+            "SELECT * FROM Orders WHERE UPPER(Id) = UPPER(@Id)", new { Id = id });
+        if (order is not null)
+            order.Items = (await GetItemsAsync(conn, id)).ToList();
+        return order;
+    }
     public async Task<Order> CreateAsync(Order order)
     {
         using var conn = CreateConnection();
@@ -48,15 +47,15 @@ public class OrderRepository(IConfiguration config)
         using var tx = conn.BeginTransaction();
 
         await conn.ExecuteAsync("""
-            INSERT INTO Orders (Id, UsuarioId, Total, Estado, FechaCreacion)
-            VALUES (@Id, @UsuarioId, @Total, @Estado, @FechaCreacion)
-        """, order, tx);
+        INSERT INTO Orders (Id, UsuarioId, Total, Estado, FechaCreacion)
+        VALUES (@Id, @UsuarioId, @Total, @Estado, @FechaCreacion)
+    """, order, tx);
 
         foreach (var item in order.Items)
             await conn.ExecuteAsync("""
-                INSERT INTO OrderItems (Id, OrderId, ProductoId, Cantidad, PrecioUnitario)
-                VALUES (@Id, @OrderId, @ProductoId, @Cantidad, @PrecioUnitario)
-            """, item, tx);
+            INSERT INTO OrderItems (Id, OrderId, ProductoId, Cantidad, PrecioUnitario)
+            VALUES (@Id, @OrderId, @ProductoId, @Cantidad, @PrecioUnitario)
+        """, item, tx);
 
         tx.Commit();
         return order;
@@ -66,11 +65,11 @@ public class OrderRepository(IConfiguration config)
     {
         using var conn = CreateConnection();
         await conn.ExecuteAsync(
-            "UPDATE Orders SET Estado = @Estado WHERE Id = @Id",
+            "UPDATE Orders SET Estado = @Estado WHERE UPPER(Id) = UPPER(@Id)",
             new { Id = id, Estado = estado });
     }
 
     private async Task<IEnumerable<OrderItem>> GetItemsAsync(SqliteConnection conn, string orderId) =>
-        await conn.QueryAsync<OrderItem>(
-            "SELECT * FROM OrderItems WHERE OrderId = @OrderId", new { OrderId = orderId });
+    await conn.QueryAsync<OrderItem>(
+        "SELECT * FROM OrderItems WHERE UPPER(OrderId) = UPPER(@OrderId)", new { OrderId = orderId });
 }

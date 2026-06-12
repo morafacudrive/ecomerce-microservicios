@@ -44,9 +44,11 @@ public class ProductsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id,
+    [FromServices] IHttpClientFactory httpClientFactory,
+    [FromServices] IConfiguration config)
     {
-        await _service.DeleteAsync(id);
+        await _service.DeleteAsync(id, httpClientFactory, config);
         return NoContent();
     }
 }

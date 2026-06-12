@@ -22,7 +22,7 @@ public class ProductRepository(IConfiguration config)
     {
         using var conn = CreateConnection();
         return await conn.QueryFirstOrDefaultAsync<Product>(
-            "SELECT * FROM Products WHERE Id = @Id", new { Id = id });
+            "SELECT * FROM Products WHERE UPPER(Id) = UPPER(@Id)", new { Id = id });
     }
 
     public async Task<Product?> GetByNombreYCategoriaAsync(string nombre, string categoria)
@@ -62,6 +62,6 @@ public class ProductRepository(IConfiguration config)
     {
         using var conn = CreateConnection();
         await conn.ExecuteAsync(
-            "DELETE FROM Products WHERE Id = @Id", new { Id = id });
+            "DELETE FROM Products WHERE UPPER(Id) = UPPER(@Id)", new { Id = id });
     }
 }
