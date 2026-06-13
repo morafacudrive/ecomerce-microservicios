@@ -30,9 +30,11 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateOrderRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateOrderRequest request,
+    [FromServices] IHttpClientFactory httpClientFactory,
+    [FromServices] IConfiguration config)
     {
-        var order = await _service.CreateAsync(request);
+        var order = await _service.CreateAsync(request, httpClientFactory, config);
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
     }
 
