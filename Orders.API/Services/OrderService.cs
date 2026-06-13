@@ -41,39 +41,42 @@ public class OrderService(OrderRepository repo)
         return MapToResponse(order);
     }
 
-    public async Task<OrderResponse> CreateAsync(CreateOrderRequest request)
+    public async Task<OrderResponse> CreateAsync(CreateOrderRequest request, IHttpClientFactory httpClientFactory, IConfiguration config)
     {
         ValidateCreateOrderRequest(request);
 
-        // ORD-003 queda pendiente para validar contra Users.API.
-        // if (!usuarioExiste)
-        //     throw new NotFoundException("ORD-003", "Usuario no encontrado al crear la orden.");
-
-        // ORD-004 y ORD-005 quedan pendientes para validar contra Products.API.
-        // if (!productoExiste)
-        //     throw new NotFoundException("ORD-004", "Producto no encontrado al crear la orden.");
-        //
-        // if (cantidadSolicitada > stockDisponible)
-        //     throw new UnprocessableException("ORD-005", "Stock insuficiente para uno o más productos.");
+        var client = httpClientFactory.CreateClient();
+        var productsUrl = config["ServicesUrls:ProductsAPI"] ?? "https://localhost:7000";
 
         var order = new Order
         {
             Id = Guid.NewGuid(),
             UsuarioId = request.UsuarioId,
-            Items = request.Items.Select(i => new OrderItem
-            {
-                Id = Guid.NewGuid(),
-                OrderId = Guid.Empty, // se asigna abajo
-                ProductoId = i.ProductoId,
-                Cantidad = i.Cantidad,
-                PrecioUnitario = 0
-            }).ToList(),
+            Items = new List<OrderItem>(),
             Estado = "Pendiente",
             FechaCreacion = DateTime.UtcNow
         };
 
-        foreach (var item in order.Items)
-            item.OrderId = order.Id;
+        foreach (var item in request.Items)
+        {
+            var response = await client.GetAsync($"{productsUrl}/api/products/{item.ProductoId}");
+
+            if (!response.IsSuccessStatusCode)
+                throw new NotFoundException("ORD-004", "Producto no encontrado al crear la orden.");
+
+            var json = await response.Content.ReadAsStringAsync();
+            var product = System.Text.Json.JsonSerializer.Deserialize<ProductoDto>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            order.Items.Add(new OrderItem
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                ProductoId = item.ProductoId,
+                Cantidad = item.Cantidad,
+                PrecioUnitario = product!.Precio
+            });
+        }
 
         order.Total = order.Items.Sum(i => i.Cantidad * i.PrecioUnitario);
 
@@ -148,4 +151,11 @@ public class OrderService(OrderRepository repo)
             FechaCreacion = order.FechaCreacion
         };
     }
+}
+public class ProductoDto
+{
+    public Guid Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public decimal Precio { get; set; }
+    public int Stock { get; set; }
 }

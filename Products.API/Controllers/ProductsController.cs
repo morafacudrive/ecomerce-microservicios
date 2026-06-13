@@ -25,7 +25,7 @@ public class ProductsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var product = await _service.GetByIdAsync(id);
+        var product = await _service.GetByIdAsync(id.ToString());
         return Ok(product);
     }
 
@@ -39,7 +39,7 @@ public class ProductsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] CreateProductRequest request)
     {
-        var product = await _service.UpdateAsync(id, request);
+        var product = await _service.UpdateAsync(id.ToString(), request);
         return Ok(product);
     }
 
@@ -48,7 +48,7 @@ public class ProductsController : ControllerBase
     [FromServices] IHttpClientFactory httpClientFactory,
     [FromServices] IConfiguration config)
     {
-        await _service.DeleteAsync(id, httpClientFactory, config);
+        await _service.DeleteAsync(id.ToString(), httpClientFactory, config);
         return NoContent();
     }
 }

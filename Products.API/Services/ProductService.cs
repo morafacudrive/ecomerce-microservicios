@@ -13,7 +13,7 @@ public class ProductService(ProductRepository repo)
         return products.Select(MapToResponse).ToList();
     }
 
-    public async Task<ProductResponse> GetByIdAsync(Guid id)
+    public async Task<ProductResponse> GetByIdAsync(string id)
     {
         var product = await repo.GetByIdAsync(id.ToString());
 
@@ -34,7 +34,7 @@ public class ProductService(ProductRepository repo)
 
         var product = new Product
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
             Nombre = request.Nombre,
             Descripcion = request.Descripcion,
             Precio = request.Precio,
@@ -48,7 +48,7 @@ public class ProductService(ProductRepository repo)
         return MapToResponse(product);
     }
 
-    public async Task<ProductResponse> UpdateAsync(Guid id, CreateProductRequest request)
+    public async Task<ProductResponse> UpdateAsync(string id, CreateProductRequest request)
     {
         ValidateProductRequest(request);
 
@@ -59,7 +59,7 @@ public class ProductService(ProductRepository repo)
 
         var duplicado = await repo.GetByNombreYCategoriaAsync(request.Nombre, request.Categoria);
 
-        if (duplicado != null && duplicado.Id != id)
+        if (duplicado != null && duplicado.Id != id.ToString())
             throw new ConflictException("PRD-003", $"Ya existe un producto con ese nombre en la categoría '{request.Categoria}'.");
 
         product.Nombre = request.Nombre;
@@ -73,7 +73,7 @@ public class ProductService(ProductRepository repo)
         return MapToResponse(product);
     }
 
-    public async Task DeleteAsync(Guid id, IHttpClientFactory httpClientFactory, IConfiguration config)
+    public async Task DeleteAsync(string id, IHttpClientFactory httpClientFactory, IConfiguration config)
     {
         var product = await repo.GetByIdAsync(id.ToString());
 

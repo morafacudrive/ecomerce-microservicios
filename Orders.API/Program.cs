@@ -28,6 +28,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 );
 
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
 builder.Services.AddSingleton<DatabaseInitializer>();
 builder.Services.AddSingleton<OrderRepository>();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
